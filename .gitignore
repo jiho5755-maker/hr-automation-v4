@@ -1,0 +1,92 @@
+# ==================== HR 자동화 시스템 .gitignore ====================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Database files (보안상 제외)
+*.db
+*.db-shm
+*.db-wal
+
+# 환경 변수 (민감 정보)
+.env
+.env.local
+.env.production
+
+# 로그
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# 백업 (용량이 큼)
+_backups/
+*.bak
+backups/
+
+# 압축 파일
+*.zip
+*.tar.gz
+*.rar
+
+# 임시 파일
+*.tmp
+temp/
+tmp/
+
+# Node modules (혹시 있을 경우)
+node_modules/
+
+# 테스트
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Mac
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# 개발 중 생성되는 파일
+test_*.py
+*_test.py
+quick_test.sh
+
+# Docker 볼륨 데이터
+data/
+
+# 업로드 파일
+uploads/
+downloads/
+
+# 캐시
+.cache/
+*.cache

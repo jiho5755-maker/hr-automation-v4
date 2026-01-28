@@ -1,0 +1,88 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Database files (호스트에서 볼륨으로 마운트)
+*.db
+*.db-shm
+*.db-wal
+
+# 로그
+logs/
+*.log
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 백업
+_backups/
+*.bak
+
+# 문서 (이미지/빌드에 불필요)
+*.md
+planning/
+_scripts_archived/
+✅_*.md
+🎉_*.md
+🎊_*.md
+🎯_*.md
+🏠_*.md
+📊_*.md
+🔄_*.sh
+🔥_*.md
+🔧_*.sh
+🚀_*.command
+🚀_*.md
+✨_*.md
+
+# 테스트
+test_*.py
+*_test.py
+quick_test.sh
+
+# 임시 파일
+*.tmp
+temp/
+tmp/
+
+# Docker 자체
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Nginx 설정 (별도 컨테이너)
+nginx/
+
+# 환경 변수
+.env
+.env.*
+env.example.txt
+
+# 기타 모듈 (각자 빌드)
+0_통합_대시보드/
+1_출산육아_자동화/
+2_연말정산_자동화/
+3_재택근무_관리시스템/
+4_정부지원금_자동화/
+5_급여관리_자동화/
