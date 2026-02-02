@@ -28,26 +28,6 @@ def load_json_data(json_path):
     try:
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        
-        # JSON 구조 확인: 딕셔너리의 딕셔너리 형태인 경우 리스트로 변환
-        if isinstance(data, dict):
-            # 각 키(이름)에 대한 데이터를 리스트로 변환
-            employee_list = []
-            for name, emp_data in data.items():
-                if isinstance(emp_data, dict) and 'EMPLOYEE_INFO' in emp_data:
-                    # 출산육아 모듈의 구조
-                    emp_info = emp_data['EMPLOYEE_INFO']
-                    employee_list.append({
-                        'name': emp_info.get('이름', name),
-                        'resident_number': emp_info.get('주민등록번호'),
-                        'phone': emp_info.get('연락처'),
-                        'department': emp_info.get('부서'),
-                        'position': emp_info.get('직급'),
-                        'is_pregnant': True if 'PREGNANCY_SHORT_WORK' in emp_data else False,
-                        'hire_date': '2020-01-01'  # 기본값
-                    })
-            data = employee_list
-        
         print(f"✅ JSON 파일 로드 완료: {len(data)}명")
         return data
     except FileNotFoundError:

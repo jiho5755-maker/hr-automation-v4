@@ -68,12 +68,6 @@ def init_master_database():
             email TEXT,
             phone TEXT,
             
-            -- 급여 관련 필드 (이중 기준 공제용)
-            reported_base INTEGER DEFAULT 0,      -- 신고 보수월액 (국민연금, 건강보험 산출 기준)
-            contract_base INTEGER DEFAULT 0,       -- 계약 기본급 (실제 일할 계산 및 시급 산정 기준)
-            weekly_hours INTEGER DEFAULT 40,      -- 주 소정근로시간 (32 또는 40)
-            dependents INTEGER DEFAULT 1,         -- 부양가족 수 (소득세 간이세액표 매칭용, 최소값 1)
-            
             -- 상태 정보
             is_active BOOLEAN DEFAULT 1,
             is_pregnant BOOLEAN DEFAULT 0,
@@ -308,32 +302,6 @@ def init_master_database():
         CREATE INDEX IF NOT EXISTS idx_log_module ON system_logs(module)
         """)
         
-        # ==================== 기존 테이블 마이그레이션 (필드 추가) ====================
-        # employees 테이블에 급여 관련 필드 추가 (이미 존재하면 무시)
-        try:
-            cursor.execute("ALTER TABLE employees ADD COLUMN reported_base INTEGER DEFAULT 0")
-            print("✅ reported_base 필드 추가 완료")
-        except sqlite3.OperationalError:
-            pass  # 이미 존재하는 경우 무시
-        
-        try:
-            cursor.execute("ALTER TABLE employees ADD COLUMN contract_base INTEGER DEFAULT 0")
-            print("✅ contract_base 필드 추가 완료")
-        except sqlite3.OperationalError:
-            pass
-        
-        try:
-            cursor.execute("ALTER TABLE employees ADD COLUMN weekly_hours INTEGER DEFAULT 40")
-            print("✅ weekly_hours 필드 추가 완료")
-        except sqlite3.OperationalError:
-            pass
-        
-        try:
-            cursor.execute("ALTER TABLE employees ADD COLUMN dependents INTEGER DEFAULT 1")
-            print("✅ dependents 필드 추가 완료")
-        except sqlite3.OperationalError:
-            pass
-        
         conn.commit()
         print("✅ 통합 데이터베이스 초기화 완료!")
         print(f"📁 데이터베이스 위치: {DB_PATH}")
@@ -563,10 +531,9 @@ def add_employee(employee_data: Dict) -> int:
         INSERT INTO employees (
             emp_id, name, resident_number, department, position,
             hire_date, gender, age, email, phone,
-            reported_base, contract_base, weekly_hours, dependents,
             is_active, is_pregnant, is_on_leave, is_youth, is_disabled,
             created_by, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             employee_data.get('emp_id'),
             employee_data.get('name'),
@@ -578,10 +545,6 @@ def add_employee(employee_data: Dict) -> int:
             employee_data.get('age'),
             employee_data.get('email'),
             employee_data.get('phone'),
-            employee_data.get('reported_base', 0),
-            employee_data.get('contract_base', 0),
-            employee_data.get('weekly_hours', 40),
-            employee_data.get('dependents', 1),
             employee_data.get('is_active', 1),
             employee_data.get('is_pregnant', 0),
             employee_data.get('is_on_leave', 0),
@@ -632,10 +595,6 @@ def update_employee(emp_id: str, employee_data: Dict) -> bool:
                 'age': 'age',
                 'email': 'email',
                 'phone': 'phone',
-                'reported_base': 'reported_base',
-                'contract_base': 'contract_base',
-                'weekly_hours': 'weekly_hours',
-                'dependents': 'dependents',
                 'is_active': 'is_active',
                 'is_pregnant': 'is_pregnant',
                 'is_on_leave': 'is_on_leave',

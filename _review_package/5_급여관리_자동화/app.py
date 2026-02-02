@@ -293,17 +293,18 @@ elif menu == "💰 월별 급여 계산":
             
             st.divider()
             
-            # 급여 계산 (새로운 구조에 맞게)
-            emp_data = {
-                'base_salary': setting['base_salary'],
-                'allowances': setting['allowances'],
-                'ot_pay': setting.get('fixed_ot_amount', 0)
-            }
-            
+            # 급여 계산
             calc_result = st.session_state.payroll_calculator.calculate_all(
-                emp_data=emp_data,
+                base_salary=setting['base_salary'],
+                allowances=setting['allowances'],
+                tax_free_items=setting['tax_free_items'],
+                apply_pension=setting.get('apply_pension', True),
+                apply_health=setting.get('apply_health', True),
+                apply_longterm=setting.get('apply_longterm', True),
+                apply_employment=setting.get('apply_employment', True),
+                fixed_ot_amount=setting.get('fixed_ot_amount', 0),
                 work_days=work_days,
-                total_days=month_days if month_days else 30
+                month_days=month_days
             )
             
             st.divider()
@@ -313,23 +314,38 @@ elif menu == "💰 월별 급여 계산":
             
             # 기본급
             st.markdown("#### 💰 기본급")
-            st.metric("기본급", C.format_currency(calc_result['지급']['기본급']))
+            st.metric("기본급", C.format_currency(calc_result['기본급']))
             
-            # 수당 내역 상세 표시
+            # 수당 내역 상세 표시 (1월 급여대장 형식)
             st.markdown("#### 🎁 수당 내역")
-            meal_allowance = calc_result['지급'].get('식대', 0)
-            overtime_total = calc_result['지급'].get('연장수당', 0)
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("식대", C.format_currency(meal_allowance), help="🔵 비과세 (월 20만원 한도)")
-            with col2:
-                if overtime_total > 0:
-                    st.metric("연장수당", C.format_currency(overtime_total), help="🟢 과세")
-                else:
-                    st.metric("연장수당", C.format_currency(0), help="🟢 과세")
-            with col3:
-                st.metric("**총 지급액**", C.format_currency(calc_result['지급']['합계']))
+            if calc_result['수당']:
+                # 주요 수당 분류
+                meal_allowance = calc_result['수당'].get('식대', 0)
+                transport_allowance = calc_result['수당'].get('교통비', 0)
+                overtime_total = (calc_result['수당'].get('연장근로수당', 0) + 
+                                 calc_result['수당'].get('야간근로수당', 0) + 
+                                 calc_result['수당'].get('휴일근로수당', 0))
+                other_total = sum([v for k, v in calc_result['수당'].items() 
+                                 if k not in ['식대', '교통비', '연장근로수당', '야간근로수당', '휴일근로수당']])
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("식대", C.format_currency(meal_allowance), help="🔵 비과세 (월 20만원 한도)")
+                with col2:
+                    st.metric("교통비", C.format_currency(transport_allowance), help="🔵 비과세 (월 20만원 한도)")
+                with col3:
+                    st.metric("연장/야간/휴일수당", C.format_currency(overtime_total), help="🟢 과세")
+                with col4:
+                    st.metric("기타수당", C.format_currency(other_total), help="🟢 과세")
+                
+                st.divider()
+                col_sum1, col_sum2, col_sum3 = st.columns(3)
+                with col_sum1:
+                    st.metric("**수당 합계**", C.format_currency(calc_result['총수당']))
+                with col_sum2:
+                    st.metric("**비과세 합계**", C.format_currency(calc_result.get('총비과세', 0)))
+                with col_sum3:
+                    st.metric("**총 지급액**", C.format_currency(calc_result['총지급액']))
             
             # 공제 내역
             st.divider()
@@ -340,29 +356,29 @@ elif menu == "💰 월별 급여 계산":
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                st.metric("국민연금", C.format_currency(calc_result['공제']['국민연금']))
+                st.metric("국민연금", C.format_currency(calc_result['국민연금']))
                 st.caption("근로자 4.75%")
             with col2:
-                st.metric("건강보험", C.format_currency(calc_result['공제']['건강보험']))
-                st.caption("근로자 3.595%")
+                st.metric("건강보험", C.format_currency(calc_result['건강보험']))
+                st.caption("근로자 3.60%")
             with col3:
-                st.metric("장기요양", C.format_currency(calc_result['공제']['장기요양']))
+                st.metric("장기요양", C.format_currency(calc_result['장기요양']))
                 st.caption("건강보험료의 13.14%")
             with col4:
-                st.metric("고용보험", C.format_currency(calc_result['공제']['고용보험']))
+                st.metric("고용보험", C.format_currency(calc_result['고용보험']))
                 st.caption("근로자 0.9%")
             
             # 세금
             st.markdown("#### 💵 세금")
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("소득세", C.format_currency(calc_result['공제']['소득세']))
+                st.metric("소득세", C.format_currency(calc_result['소득세']))
                 st.caption("간이세액표 기준")
             with col2:
-                st.metric("지방소득세", C.format_currency(calc_result['공제']['지방세']))
+                st.metric("지방소득세", C.format_currency(calc_result['지방세']))
                 st.caption("소득세의 10%")
             with col3:
-                st.metric("**총 공제액**", C.format_currency(calc_result['공제']['합계']))
+                st.metric("**총 공제액**", C.format_currency(calc_result['총공제']))
                 st.caption("4대보험 + 세금")
             
             # 실수령액
@@ -375,45 +391,27 @@ elif menu == "💰 월별 급여 계산":
             </div>
             """, unsafe_allow_html=True)
             
-            # AI 컨설팅 표시
-            if calc_result.get('consulting'):
-                st.divider()
-                st.markdown("### 💡 AI 급여 코칭")
-                for msg in calc_result['consulting']:
-                    st.info(msg)
-            
             # 저장 버튼
             st.divider()
             if st.button("💾 급여 이력에 저장", use_container_width=True, type="primary"):
-                # 데이터베이스 저장용 형식으로 변환 (기존 구조 유지)
-                # 과세대상액 계산 (총지급액 - 비과세 식대)
-                taxable_amount = calc_result['지급']['합계'] - min(calc_result['지급']['식대'], 200000)
-                
+                # 데이터베이스 저장용 형식으로 변환
                 payroll_history_data = {
                     '지급내역': {
-                        '기본급': calc_result['지급']['기본급'],
-                        '수당합계': calc_result['지급'].get('식대', 0) + calc_result['지급'].get('연장수당', 0),
-                        '과세대상액': taxable_amount
+                        '기본급': calc_result['기본급'],
+                        '수당합계': calc_result['총수당'],
+                        '과세대상액': calc_result['과세급여']
                     },
                     '공제내역': {
-                        '국민연금': calc_result['공제']['국민연금'],
-                        '건강보험': calc_result['공제']['건강보험'],
-                        '장기요양': calc_result['공제']['장기요양'],
-                        '고용보험': calc_result['공제']['고용보험'],
-                        '소득세': calc_result['공제']['소득세'],
-                        '지방소득세': calc_result['공제']['지방세'],
-                        '공제합계': calc_result['공제']['합계']
+                        '국민연금': calc_result['국민연금'],
+                        '건강보험': calc_result['건강보험'],
+                        '장기요양': calc_result['장기요양'],
+                        '고용보험': calc_result['고용보험'],
+                        '소득세': calc_result['소득세'],
+                        '지방소득세': calc_result['지방세'],
+                        '공제합계': calc_result['총공제']
                     },
                     '실수령액': calc_result['실수령액'],
-                    '수당상세': {
-                        '식대': calc_result['지급'].get('식대', 0),
-                        '연장수당': calc_result['지급'].get('연장수당', 0)
-                    },
-                    # 새로운 구조도 함께 저장
-                    '지급': calc_result['지급'],
-                    '공제': calc_result['공제'],
-                    'calc_methods': calc_result.get('calc_methods', []),
-                    'consulting': calc_result.get('consulting', [])
+                    '수당상세': calc_result['수당']
                 }
                 
                 if add_payroll_history(emp_id, payroll_history_data, year_month):
@@ -910,7 +908,7 @@ elif menu == "📅 연차 관리":
 # ============================================================
 
 elif menu == "📄 급여명세서 출력":
-    st.subheader("📄 고용노동부 표준 임금명세서")
+    st.subheader(f"📄 {year_month} 급여명세서")
     
     # 직원 선택
     employees = get_all_employees(active_only=True)
@@ -922,466 +920,608 @@ elif menu == "📄 급여명세서 출력":
         employee = employee_options[selected]
         emp_id = employee['emp_id']
         
-        # DB에서 최신 직원 정보 다시 조회 (급여 정보 포함)
-        from shared.database import get_employee_by_id
-        employee_db = get_employee_by_id(emp_id)
-        if employee_db:
-            employee = employee_db  # 최신 DB 데이터로 업데이트
+        # 해당 월 급여 이력 조회 (수정: 직접 해당 월 조회)
+        payroll = get_payroll_history(emp_id, year_month)
         
-        # 실제 근무일수 입력 (일할 계산용)
-        st.markdown("#### 📅 당월 근무 정보")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            work_days = st.number_input(
-                "실제 근무일수",
-                min_value=1,
-                max_value=31,
-                value=20,
-                step=1,
-                help="당월 실제 근무한 일수 (예: 중도입사 시 20일)"
-            )
-        
-        with col2:
-            total_days = st.number_input(
-                "당월 총 일수",
-                min_value=28,
-                max_value=31,
-                value=30,
-                step=1,
-                help="당월의 총 일수 (일반적으로 30일 또는 31일)"
-            )
-        
-        st.info(f"💡 일할 계산: {work_days}/{total_days}일 기준으로 급여가 계산됩니다.")
-        
-        # 급여 설정 확인 (payroll_settings 테이블에서 가져오기 - 통합 대시보드에서 저장한 값)
-        setting = get_payroll_setting(emp_id)
-        
-        # 급여 정보 우선순위: payroll_settings > employees 테이블
-        # 1. payroll_settings에서 base_salary 가져오기 (통합 대시보드 "급여 정보 관리"에서 저장한 값)
-        payroll_base_salary = setting.get('base_salary', 0) if setting else 0
-        
-        # 2. employees 테이블에서 가져오기 (직원 관리에서 저장한 값)
-        employee_reported_base = employee.get('reported_base') or 0
-        employee_contract_base = employee.get('contract_base') or 0
-        
-        # 3. 우선순위 적용: payroll_settings > employees > 기본값
-        contract_base = payroll_base_salary or employee_contract_base or employee_reported_base or 0
-        reported_base = employee_reported_base or payroll_base_salary or employee_contract_base or 0
-        
-        # 주 소정근로시간과 부양가족 수
-        weekly_hours = employee.get('weekly_hours') or (setting.get('work_hours', 209) == 166.848 and 32 or 40) if setting else 40
-        dependents = employee.get('dependents') or setting.get('dependents', 1) if setting else 1
-        
-        # 디버깅 정보 (개발용)
-        with st.expander("🔍 디버깅: 직원 급여 정보 확인", expanded=False):
-            st.json({
-                "emp_id": emp_id,
-                "name": employee.get('name'),
-                "최종 사용 값": {
-                    "contract_base": contract_base,
-                    "reported_base": reported_base,
-                    "weekly_hours": weekly_hours,
-                    "dependents": dependents
-                },
-                "payroll_settings 테이블": {
-                    "base_salary": payroll_base_salary,
-                    "work_hours": setting.get('work_hours') if setting else None,
-                    "dependents": setting.get('dependents') if setting else None
-                },
-                "employees 테이블": {
-                    "reported_base": employee_reported_base,
-                    "contract_base": employee_contract_base,
-                    "weekly_hours": employee.get('weekly_hours'),
-                    "dependents": employee.get('dependents')
-                }
-            })
-        
-        if contract_base == 0:
-            st.warning(f"""
-            ⚠️ **{employee['name']}님의 급여 정보가 없습니다!**
-            
-            👉 통합 대시보드에서 먼저 급여 정보를 입력하세요.
-            
-            📍 http://localhost:8000
-            → 💰 급여 정보 관리
-            → {employee['name']} 선택 → 기본급 입력 → 저장
-            
-            또는
-            
-            → 👥 직원 관리
-            → {employee['name']} 선택 → 수정
-            → 급여 정보 섹션에서 계약 기본급과 신고 보수월액 입력
-            """)
-            st.stop()
-        
-        # 급여 계산 (DB 필드 사용)
-        emp_data = {
-            'base_salary': contract_base,  # 계약 기본급 (payroll_settings 우선)
-            'reported_base': reported_base,  # 신고 보수월액 (employees 우선, 없으면 contract_base 사용)
-            'weekly_hours': weekly_hours,   # 주 소정근로시간
-            'dependents': dependents,      # 부양가족 수
-            'allowances': setting.get('allowances', {'식대': 200000}) if setting else {'식대': 200000},
-            'ot_pay': setting.get('fixed_ot_amount', 0) if setting else 0
-        }
-        
-        # 급여 재계산 (근무일수 반영)
-        calc_result = st.session_state.payroll_calculator.calculate_all(
-            emp_data=emp_data,
-            work_days=work_days,
-            total_days=total_days
-        )
-        
-        # 계산 결과를 payroll 변수로 사용
-        payroll = {
-            "지급": calc_result['지급'],
-            "공제": calc_result['공제'],
-            "실수령액": calc_result['실수령액'],
-            "calc_methods": calc_result.get('calc_methods', []),
-            "consulting": calc_result.get('consulting', [])
-        }
-        
-        # 해당 월 급여 이력 조회 (기존 이력이 있으면 표시)
-        payroll_db = get_payroll_history(emp_id, year_month)
-        
-        if payroll_db:
-            st.info(f"✅ {year_month} 급여 이력이 있습니다. 아래는 당월 근무일수({work_days}일) 기준으로 재계산된 결과입니다.")
+        if not payroll:
+            st.warning(f"⚠️ {year_month} 급여 이력이 없습니다. '💰 월별 급여 계산' 메뉴에서 먼저 계산하세요.")
         else:
-            st.info("💡 아래는 당월 근무일수 기준으로 계산된 급여명세서입니다. 저장하려면 '💰 월별 급여 계산' 메뉴를 사용하세요.")
-        
-        # 급여명세서 표시 (계산된 결과 사용)
-        # 고용노동부 표준 양식 HTML 생성
-        payslip_html = f"""
-        <div style="border: 2px solid #000; padding: 20px; font-family: 'Malgun Gothic'; background: white; color: black;">
-            <h2 style="text-align: center; text-decoration: underline;">임 금 명 세 서</h2>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                <tr>
-                    <td style="border: 1px solid #000; padding: 8px; background: #eee; width: 15%;">성명</td>
-                    <td style="border: 1px solid #000; padding: 8px; width: 35%;">{employee['name']}</td>
-                    <td style="border: 1px solid #000; padding: 8px; background: #eee; width: 15%;">사번</td>
-                    <td style="border: 1px solid #000; padding: 8px; width: 35%;">{employee.get('emp_id', '-')}</td>
-                </tr>
-            </table>
-
-            <h4 style="margin-top: 20px; border-left: 5px solid #333; padding-left: 10px;">1. 세부 내역</h4>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr style="background: #eee; text-align: center; font-weight: bold;">
-                    <td colspan="2" style="border: 1px solid #000;">지 급</td>
-                    <td colspan="2" style="border: 1px solid #000;">공 제</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #000; padding: 5px;">기본급</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['지급']['기본급']:,}</td>
-                    <td style="border: 1px solid #000; padding: 5px;">국민연금</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['공제']['국민연금']:,}</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #000; padding: 5px;">식대</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['지급']['식대']:,}</td>
-                    <td style="border: 1px solid #000; padding: 5px;">건강보험</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['공제']['건강보험']:,}</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #000; padding: 5px;"></td><td style="border: 1px solid #000; text-align: right; padding: 5px;"></td>
-                    <td style="border: 1px solid #000; padding: 5px;">장기요양</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['공제']['장기요양']:,}</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #000; padding: 5px;"></td><td style="border: 1px solid #000; text-align: right; padding: 5px;"></td>
-                    <td style="border: 1px solid #000; padding: 5px;">고용보험</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['공제']['고용보험']:,}</td>
-                </tr>
-                <tr style="font-weight: bold; background: #fafafa;">
-                    <td style="border: 1px solid #000; padding: 5px;">지급액 계</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['지급']['합계']:,}</td>
-                    <td style="border: 1px solid #000; padding: 5px;">공제액 계</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['공제']['합계']:,}</td>
-                </tr>
-                <tr style="font-weight: bold; background: #fff5cc; font-size: 1.1em;">
-                    <td colspan="3" style="border: 1px solid #000; text-align: center; padding: 10px;">실 지 급 액</td>
-                    <td style="border: 1px solid #000; text-align: right; padding: 10px;">{payroll['실수령액']:,}원</td>
-                </tr>
-            </table>
-
-            <h4 style="margin-top: 20px; border-left: 5px solid #333; padding-left: 10px;">2. 계산 방법 (고용노동부 표준)</h4>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr style="background: #eee; text-align: center; font-weight: bold;">
-                    <td style="border: 1px solid #000; padding: 5px;">구분</td>
-                    <td style="border: 1px solid #000; padding: 5px;">산출식 또는 산출방법</td>
-                    <td style="border: 1px solid #000; padding: 5px;">지급액(원)</td>
-                </tr>
-                {"".join([f"<tr><td style='border: 1px solid #000; padding: 5px;'>{m['item']}</td><td style='border: 1px solid #000; padding: 5px;'>{m['formula']}</td><td style='border: 1px solid #000; text-align: right; padding: 5px;'>{m['amount']:,}</td></tr>" for m in payroll.get('calc_methods', [])])}
-            </table>
-        </div>
-        """
-        
-        # HTML 렌더링 (양식으로 표시)
-        st.markdown("### 📄 급여명세서 미리보기")
-        components.html(payslip_html, height=1000, scrolling=True)
-        
-        # 컨설팅 가이드
-        if payroll.get('consulting'):
-            st.info("\n".join(payroll['consulting']))
-        
-        st.divider()
-        
-        # 다운로드 옵션
-        st.markdown("### 📥 다운로드")
-        
-        col1, col2, col3 = st.columns(3)
             
-        with col1:
-            # 워드(DOCX) 다운로드
-            try:
-                from docx import Document
-                from docx.shared import Pt, RGBColor, Inches
-                from docx.enum.text import WD_ALIGN_PARAGRAPH
-                import io
-                
-                # DOCX 문서 생성
-                doc = Document()
-                
-                # 제목
-                title = doc.add_heading('급 여 명 세 서', 0)
-                title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                
-                # 기본 정보
-                doc.add_paragraph(f"귀속년월: {year_month}  |  지급일: {year_month}-{C.DEFAULT_PAYDAY}")
-                doc.add_paragraph(f"성명: {employee['name']}  |  사번: {employee.get('emp_id', '-')}  |  생년월일: {employee.get('resident_number', '')[:6] if employee.get('resident_number') else '-'}")
-                doc.add_paragraph(f"부서: {employee['department']}  |  직급: {employee['position']}")
-                doc.add_paragraph("")
-                
-                # 지급/공제 내역 표
-                doc.add_heading('지급 및 공제 내역', level=2)
-                
-                table = doc.add_table(rows=1, cols=4)
-                table.style = 'Light Grid Accent 1'
-                hdr_cells = table.rows[0].cells
-                hdr_cells[0].text = '지급 항목'
-                hdr_cells[1].text = '지급 금액'
-                hdr_cells[2].text = '공제 항목'
-                hdr_cells[3].text = '공제 금액'
-                
-                # 지급 및 공제 항목 (새로운 구조 사용)
-                pay_items = [('기본급', payroll['지급']['기본급'])]
-                if payroll['지급'].get('식대', 0) > 0:
-                    pay_items.append(('식대', payroll['지급']['식대']))
-                if payroll['지급'].get('연장수당', 0) > 0:
-                    pay_items.append(('연장수당', payroll['지급']['연장수당']))
-                
-                deduction_items = [
-                    ('국민연금', payroll['공제']['국민연금']),
-                    ('건강보험', payroll['공제']['건강보험']),
-                    ('장기요양', payroll['공제']['장기요양']),
-                    ('고용보험', payroll['공제']['고용보험']),
-                    ('소득세', payroll['공제']['소득세']),
-                    ('지방소득세', payroll['공제']['지방세'])
-                ]
-                
-                # 행별로 지급/공제 동시 표시
-                max_rows = max(len(pay_items), len(deduction_items))
-                for i in range(max_rows):
-                    row_cells = table.add_row().cells
+            st.divider()
+            
+            # 회사 정보
+            company = get_company_profile()
+            company_name = company['company_name'] if company else "회사명"
+            
+            # 급여 설정 불러오기
+            setting = get_payroll_setting(emp_id)
+            
+            # 통상시급 계산 (기본급 + 식대 포함)
+            base_salary = setting.get('base_salary', 0) if setting else 0
+            meal_allowance = setting.get('allowances', {}).get('식대', 0) if setting else 0
+            calculated_hourly_wage = calculate_hourly_wage(base_salary, meal_allowance) if setting else 0
+            
+            # 수당 내역 HTML 생성
+            allowances_html = ""
+            if payroll.get('allowances'):
+                for name, amount in payroll.get('allowances', {}).items():
+                    if amount > 0:
+                        tax_status = "비과세" if amount <= C.TAX_FREE_LIMITS.get(name, 0) else "과세"
+                        allowances_html += f"""
+                        <tr>
+                            <td style="padding: 0.5rem; border: 1px solid #000;">{name}</td>
+                            <td style="padding: 0.5rem; border: 1px solid #000;">{tax_status}</td>
+                            <td style="padding: 0.5rem; border: 1px solid #000; text-align: right;">{amount:,}원</td>
+                        </tr>
+                        """
+            
+            # 포괄임금제 안내
+            inclusive_wage_info = ""
+            if setting and setting.get('is_inclusive_wage'):
+                inclusive_wage_info = f'<p style="font-size: 0.9em; margin: 0.3rem 0; color: #ff6600;"><strong>※ 포괄임금제 적용:</strong> 고정 OT {setting.get("fixed_ot_hours", 0)}시간 포함</p>'
+            
+            # 급여명세서 HTML (표준양식 참고)
+            payslip_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    @media print {{
+                        body {{ margin: 0; padding: 0; }}
+                        .container {{ border: 2px solid #000; page-break-inside: avoid; }}
+                        @page {{ size: A4; margin: 1cm; }}
+                    }}
+                    body {{
+                        font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+                        padding: 10px;
+                        background: white;
+                        margin: 0;
+                    }}
+                    .container {{
+                        max-width: 800px;
+                        margin: 0 auto;
+                        border: 2px solid #000;
+                        background: white;
+                    }}
+                    h1 {{
+                        text-align: center;
+                        margin: 0;
+                        padding: 1rem 0;
+                        font-size: 1.8em;
+                        font-weight: bold;
+                        border-bottom: 2px solid #000;
+                    }}
+                    .info-section {{
+                        text-align: right;
+                        padding: 0.5rem 1rem;
+                        font-size: 0.9em;
+                        border-bottom: 1px solid #000;
+                    }}
+                    table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                    }}
+                    td {{
+                        border: 1px solid #000;
+                        padding: 0.4rem;
+                        font-size: 0.9em;
+                    }}
+                    .header-cell {{
+                        background-color: #e8e8e8;
+                        font-weight: bold;
+                        text-align: center;
+                    }}
+                    .section-header {{
+                        background-color: #d0d0d0;
+                        font-weight: bold;
+                        text-align: center;
+                        padding: 0.5rem;
+                    }}
+                    .amount {{
+                        text-align: right;
+                        font-weight: bold;
+                    }}
+                    .total-row {{
+                        background-color: #f5f5f5;
+                        font-weight: bold;
+                    }}
+                    .net-pay-row {{
+                        background-color: #fff5cc;
+                        font-weight: bold;
+                        font-size: 1.1em;
+                    }}
+                    .calc-section {{
+                        margin-top: 1rem;
+                    }}
+                    .calc-header {{
+                        background-color: #e0e0e0;
+                        font-weight: bold;
+                        text-align: center;
+                        padding: 0.5rem;
+                    }}
+                    .notice {{
+                        padding: 0.5rem 1rem;
+                        font-size: 0.8em;
+                        color: #666;
+                        border-top: 1px solid #000;
+                        margin-top: 1rem;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>임 금 명 세 서</h1>
                     
-                    if i < len(pay_items):
-                        row_cells[0].text = pay_items[i][0]
-                        row_cells[1].text = f"{pay_items[i][1]:,.0f}원"
-                    else:
-                        row_cells[0].text = ''
-                        row_cells[1].text = ''
+                    <div class="info-section">
+                        지급일: {year_month}-{C.DEFAULT_PAYDAY}
+                    </div>
                     
-                    if i < len(deduction_items):
-                        row_cells[2].text = deduction_items[i][0]
-                        row_cells[3].text = f"{deduction_items[i][1]:,.0f}원"
-                    else:
-                        row_cells[2].text = ''
-                        row_cells[3].text = ''
-                
-                # 합계 행
-                row_cells = table.add_row().cells
-                row_cells[0].text = '총 지급액'
-                row_cells[1].text = f"{payroll['지급']['합계']:,.0f}원"
-                row_cells[2].text = '총 공제액'
-                row_cells[3].text = f"{payroll['공제']['합계']:,.0f}원"
-                
-                # 실수령액
-                doc.add_paragraph("")
-                p = doc.add_paragraph()
-                p.add_run('실수령액: ').bold = True
-                p.add_run(f"{payroll['실수령액']:,.0f}원").bold = True
-                p.runs[1].font.size = Pt(14)
-                
-                # 고정 OT 정보 추가
-                if setting and setting.get('is_inclusive_wage'):
-                    doc.add_paragraph("")
-                    doc.add_paragraph(f"※ 포괄임금제 적용 (고정 OT {setting.get('fixed_ot_hours', 0)}시간)")
-                
-                # 저장
-                docx_buffer = io.BytesIO()
-                doc.save(docx_buffer)
-                docx_buffer.seek(0)
-                
-                st.download_button(
-                    label="📘 워드 다운로드",
-                    data=docx_buffer.getvalue(),
-                    file_name=f"급여명세서_{employee['name']}_{year_month}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    help="워드 파일로 다운로드하여 편집 가능",
-                    use_container_width=True
-                )
-            except ImportError:
-                st.button(
-                    "📘 워드 다운로드",
-                    disabled=True,
-                    help="python-docx 라이브러리 설치 필요",
-                    use_container_width=True
-                )
-            except Exception as e:
-                st.button(
-                    "📘 워드 다운로드",
-                    disabled=True,
-                    help=f"워드 생성 오류: {str(e)}",
-                    use_container_width=True
-                )
-        
-        with col2:
-            # 엑셀 다운로드
-            try:
-                from openpyxl import Workbook
-                from openpyxl.styles import Font, Alignment, PatternFill
-                import io
-                
-                # 워크북 생성
-                wb = Workbook()
-                ws = wb.active
-                ws.title = "급여명세서"
-                
-                # 제목
-                ws.merge_cells('A1:B1')
-                ws['A1'] = '급 여 명 세 서'
-                ws['A1'].font = Font(size=16, bold=True)
-                ws['A1'].alignment = Alignment(horizontal='center')
-                
-                # 기본 정보
-                ws['A3'] = '귀속년월'
-                ws['B3'] = year_month
-                ws['A4'] = '성명'
-                ws['B4'] = employee['name']
-                ws['A5'] = '사번'
-                ws['B5'] = employee.get('emp_id', '-')
-                ws['A6'] = '생년월일'
-                ws['B6'] = employee.get('resident_number', '')[:6] if employee.get('resident_number') else '-'
-                ws['A7'] = '부서'
-                ws['B7'] = employee['department']
-                ws['A8'] = '직급'
-                ws['B8'] = employee['position']
-                ws['A9'] = '지급일'
-                ws['B9'] = f"{year_month}-{C.DEFAULT_PAYDAY}"
-                
-                # 지급/공제 내역 (세무사 급여대장 형식)
-                ws['A11'] = '지급 항목'
-                ws['B11'] = '지급 금액'
-                ws['C11'] = '공제 항목'
-                ws['D11'] = '공제 금액'
-                
-                # 헤더 스타일
-                for col in ['A11', 'B11', 'C11', 'D11']:
-                    ws[col].font = Font(bold=True)
-                    ws[col].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
-                    ws[col].alignment = Alignment(horizontal='center')
-                
-                # 지급 항목 준비 (새로운 구조 사용)
-                pay_items = [('기본급', payroll['지급']['기본급'])]
-                if payroll['지급'].get('식대', 0) > 0:
-                    pay_items.append(('식대', payroll['지급']['식대']))
-                if payroll['지급'].get('연장수당', 0) > 0:
-                    pay_items.append(('연장수당', payroll['지급']['연장수당']))
-                
+                    <!-- 기본 정보 (인적 사항) -->
+                    <table>
+                        <tr>
+                            <td class="header-cell" style="width: 15%;">성명</td>
+                            <td style="width: 35%;">{employee['name']}</td>
+                            <td class="header-cell" style="width: 15%;">사번</td>
+                            <td style="width: 35%;">{employee.get('emp_id', '-')}</td>
+                        </tr>
+                        <tr>
+                            <td class="header-cell">생년월일</td>
+                            <td>{employee.get('resident_number', '')[:6] if employee.get('resident_number') else '-'}</td>
+                            <td class="header-cell">귀속년월</td>
+                            <td>{year_month}</td>
+                        </tr>
+                        <tr>
+                            <td class="header-cell">부서</td>
+                            <td>{employee['department']}</td>
+                            <td class="header-cell">직급</td>
+                            <td>{employee['position']}</td>
+                        </tr>
+                    </table>
+                    
+                    <!-- 세부 내역 (지급/공제 좌우 배치) -->
+                    <table>
+                        <tr>
+                            <td colspan="4" class="section-header">세부 내역</td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" class="header-cell">지 급</td>
+                            <td colspan="2" class="header-cell">공 제</td>
+                        </tr>
+                        <tr>
+                            <td class="header-cell" style="width: 20%;">임금 항목</td>
+                            <td class="header-cell" style="width: 30%;">지급 금액(원)</td>
+                            <td class="header-cell" style="width: 20%;">공제 항목</td>
+                            <td class="header-cell" style="width: 30%;">공제 금액(원)</td>
+                        </tr>
+                        <tr>
+                            <td>기본급</td>
+                            <td class="amount">{payroll['base_salary']:,}</td>
+                            <td>소득세</td>
+                            <td class="amount">{payroll['income_tax']:,}</td>
+                        </tr>"""
+            
+            # 수당 및 공제 항목 동적 생성
+            allowance_items = []
+            
+            # 수당 상세 추가 (식대, 연장근로수당 등)
+            if payroll.get('allowances'):
+                for name, amount in payroll.get('allowances', {}).items():
+                    if amount > 0:
+                        allowance_items.append((name, amount))
+            
+            # 공제 항목 (소득세는 이미 첫 줄에 있으므로 나머지만)
+            deduction_items = []
+            
+            # 0원이 아닌 공제 항목만 추가
+            if payroll.get('national_pension', 0) > 0:
+                deduction_items.append(("국민연금", payroll['national_pension']))
+            if payroll.get('health_insurance', 0) > 0:
+                deduction_items.append(("건강보험", payroll['health_insurance']))
+            if payroll.get('employment_insurance', 0) > 0:
+                deduction_items.append(("고용보험", payroll['employment_insurance']))
+            if payroll.get('longterm_care', 0) > 0:
+                deduction_items.append(("장기요양보험", payroll['longterm_care']))
+            if payroll.get('local_tax', 0) > 0:
+                deduction_items.append(("지방소득세", payroll['local_tax']))
+            
+            # 최대 줄 수 계산
+            max_rows = max(len(allowance_items), len(deduction_items))
+            
+            for i in range(max_rows):
+                payslip_html += "<tr>"
+                # 지급 항목 (수당)
+                if i < len(allowance_items):
+                    payslip_html += f"<td>{allowance_items[i][0]}</td><td class='amount'>{allowance_items[i][1]:,}</td>"
+                else:
+                    payslip_html += "<td></td><td></td>"
                 # 공제 항목
-                deduction_items = [
-                    ('국민연금', payroll['공제']['국민연금']),
-                    ('건강보험', payroll['공제']['건강보험']),
-                    ('장기요양', payroll['공제']['장기요양']),
-                    ('고용보험', payroll['공제']['고용보험']),
-                    ('소득세', payroll['공제']['소득세']),
-                    ('지방소득세', payroll['공제']['지방세'])
-                ]
-                
-                # 데이터 입력
-                row = 12
-                max_rows = max(len(pay_items), len(deduction_items))
-                
-                for i in range(max_rows):
-                    # 지급 항목
-                    if i < len(pay_items):
-                        ws[f'A{row}'] = pay_items[i][0]
-                        ws[f'B{row}'] = pay_items[i][1]
-                        ws[f'B{row}'].number_format = '#,##0'
+                if i < len(deduction_items):
+                    item = deduction_items[i]
+                    payslip_html += f"<td>{item[0]}</td><td class='amount'>{item[1]:,}</td>"
+                else:
+                    payslip_html += "<td></td><td></td>"
+                payslip_html += "</tr>"
+            
+            # 총 지급액 계산 (기본급 + 모든 수당)
+            total_payment = payroll['base_salary'] + sum(payroll.get('allowances', {}).values())
+            
+            payslip_html += f"""
+                        <tr class="total-row">
+                            <td>지급액 계</td>
+                            <td class="amount">{total_payment:,}</td>
+                            <td>공제액 계</td>
+                            <td class="amount">{payroll['total_deduction']:,}</td>
+                        </tr>
+                        <tr class="net-pay-row">
+                            <td colspan="3" style="text-align: center;">실수령액(원)</td>
+                            <td class="amount" style="font-size: 1.2em;">{payroll['net_pay']:,}</td>
+                        </tr>
+                    </table>
+                    
+                    <!-- 근로시간 및 계산방법 -->
+                    <table class="calc-section">
+                        <tr>
+                            <td class="header-cell" style="width: 20%;">연장근로시간수</td>
+                            <td style="width: 13%;" class="amount">{setting.get('fixed_ot_hours', 0) if setting and setting.get('is_inclusive_wage') else '-'}</td>
+                            <td class="header-cell" style="width: 20%;">야간근로시간수</td>
+                            <td style="width: 13%;" class="amount">-</td>
+                            <td class="header-cell" style="width: 20%;">휴일근로시간수</td>
+                            <td style="width: 14%;" class="amount">-</td>
+                        </tr>
+                        <tr>
+                            <td class="header-cell">통상시급(원)</td>
+                            <td class="amount">{calculated_hourly_wage:,.0f}</td>
+                            <td colspan="4"></td>
+                        </tr>
+                    </table>
+                    
+                    <!-- 계산 방법 (실제 적용된 값 표시) -->
+                    <table class="calc-section">
+                        <tr>
+                            <td colspan="2" class="calc-header">계산 방법 (해당 직원 적용 내역)</td>
+                        </tr>
+                        <tr>
+                            <td class="header-cell" style="width: 30%;">구분</td>
+                            <td class="header-cell" style="width: 70%;">산출식 (실제 적용 값)</td>
+                        </tr>"""
+            
+            # 실제 적용된 보험 및 세금 계산 표시
+            if payroll.get('national_pension', 0) > 0:
+                payslip_html += f"""
+                        <tr>
+                            <td class="header-cell">국민연금</td>
+                            <td>{payroll['taxable_amount']:,}원 (과세급여) × 4.75% = {payroll['national_pension']:,}원</td>
+                        </tr>"""
+            
+            if payroll.get('health_insurance', 0) > 0:
+                payslip_html += f"""
+                        <tr>
+                            <td class="header-cell">건강보험</td>
+                            <td>{payroll['taxable_amount']:,}원 (과세급여) × 3.60% = {payroll['health_insurance']:,}원</td>
+                        </tr>"""
+            
+            if payroll.get('longterm_care', 0) > 0:
+                payslip_html += f"""
+                        <tr>
+                            <td class="header-cell">장기요양보험</td>
+                            <td>{payroll['health_insurance']:,}원 (건강보험료) × 13.14% = {payroll['longterm_care']:,}원</td>
+                        </tr>"""
+            
+            if payroll.get('employment_insurance', 0) > 0:
+                payslip_html += f"""
+                        <tr>
+                            <td class="header-cell">고용보험</td>
+                            <td>{payroll['taxable_amount']:,}원 (과세급여) × 0.9% = {payroll['employment_insurance']:,}원</td>
+                        </tr>"""
+            
+            payslip_html += f"""
+                        <tr>
+                            <td class="header-cell">소득세</td>
+                            <td>간이세액표 기준 (본인 1명) = {payroll['income_tax']:,}원</td>
+                        </tr>
+                        <tr>
+                            <td class="header-cell">지방소득세</td>
+                            <td>{payroll['income_tax']:,}원 (소득세) × 10% = {payroll['local_tax']:,}원</td>
+                        </tr>"""
+            
+            # 연장근로수당이 있는 경우
+            if setting and setting.get('is_inclusive_wage') and setting.get('fixed_ot_hours', 0) > 0:
+                fixed_ot_hours = setting.get('fixed_ot_hours', 0)
+                fixed_ot_amount = setting.get('fixed_ot_amount', 0)
+                payslip_html += f"""
+                        <tr>
+                            <td class="header-cell">연장근로수당</td>
+                            <td>{calculated_hourly_wage:,.0f}원 (통상시급) × {fixed_ot_hours:.1f}시간 × {C.OVERTIME_RATE}배 = {fixed_ot_amount:,}원</td>
+                        </tr>"""
+            
+            payslip_html += """
+                    </table>
+                    
+                    <div class="notice">
+                        ※ 근로기준법 제48조에 따라 임금명세서를 교부합니다. | 2026년 최저시급: 10,320원 | 법정근로시간: 주 40시간<br>
+                        ※ 발행: {datetime.now().strftime("%Y년 %m월 %d일")} | {company_name}
+                        {' | 포괄임금제 적용 (고정 OT ' + str(setting.get('fixed_ot_hours', 0)) + '시간)' if setting and setting.get('is_inclusive_wage') else ''}<br>
+                        ※ <strong>해당 명세서는 2026년 개정 근로기준법 및 사회보험 요율을 준수합니다.</strong>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            # HTML 렌더링
+            st.markdown("### 📄 급여명세서 미리보기")
+            components.html(payslip_html, height=1200, scrolling=True)
+            
+            st.divider()
+            
+            # 다운로드 옵션
+            st.markdown("### 📥 다운로드")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                # 워드(DOCX) 다운로드
+                try:
+                    from docx import Document
+                    from docx.shared import Pt, RGBColor, Inches
+                    from docx.enum.text import WD_ALIGN_PARAGRAPH
+                    import io
+                    
+                    # DOCX 문서 생성
+                    doc = Document()
+                    
+                    # 제목
+                    title = doc.add_heading('급 여 명 세 서', 0)
+                    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    
+                    # 기본 정보
+                    doc.add_paragraph(f"귀속년월: {year_month}  |  지급일: {year_month}-{C.DEFAULT_PAYDAY}")
+                    doc.add_paragraph(f"성명: {employee['name']}  |  사번: {employee.get('emp_id', '-')}  |  생년월일: {employee.get('resident_number', '')[:6] if employee.get('resident_number') else '-'}")
+                    doc.add_paragraph(f"부서: {employee['department']}  |  직급: {employee['position']}")
+                    doc.add_paragraph("")
+                    
+                    # 지급/공제 내역 표
+                    doc.add_heading('지급 및 공제 내역', level=2)
+                    
+                    table = doc.add_table(rows=1, cols=4)
+                    table.style = 'Light Grid Accent 1'
+                    hdr_cells = table.rows[0].cells
+                    hdr_cells[0].text = '지급 항목'
+                    hdr_cells[1].text = '지급 금액'
+                    hdr_cells[2].text = '공제 항목'
+                    hdr_cells[3].text = '공제 금액'
+                    
+                    # 지급 및 공제 항목 (세무사 급여대장 형식)
+                    pay_items = [('기본급', payroll['base_salary'])]
+                    
+                    # 개별 수당 추가
+                    if payroll.get('allowances'):
+                        for name, amount in payroll.get('allowances', {}).items():
+                            if amount > 0:
+                                pay_items.append((name, amount))
+                    
+                    deduction_items = [
+                        ('국민연금', payroll.get('national_pension', 0)),
+                        ('건강보험', payroll.get('health_insurance', 0)),
+                        ('장기요양', payroll.get('longterm_care', 0)),
+                        ('고용보험', payroll.get('employment_insurance', 0)),
+                        ('소득세', payroll.get('income_tax', 0)),
+                        ('지방소득세', payroll.get('local_tax', 0))
+                    ]
+                    
+                    # 행별로 지급/공제 동시 표시
+                    max_rows = max(len(pay_items), len(deduction_items))
+                    for i in range(max_rows):
+                        row_cells = table.add_row().cells
+                        
+                        if i < len(pay_items):
+                            row_cells[0].text = pay_items[i][0]
+                            row_cells[1].text = f"{pay_items[i][1]:,.0f}원"
+                        else:
+                            row_cells[0].text = ''
+                            row_cells[1].text = ''
+                        
+                        if i < len(deduction_items):
+                            row_cells[2].text = deduction_items[i][0]
+                            row_cells[3].text = f"{deduction_items[i][1]:,.0f}원"
+                        else:
+                            row_cells[2].text = ''
+                            row_cells[3].text = ''
+                    
+                    # 합계 행
+                    row_cells = table.add_row().cells
+                    row_cells[0].text = '총 지급액'
+                    row_cells[1].text = f"{payroll['base_salary'] + payroll['total_allowance']:,.0f}원"
+                    row_cells[2].text = '총 공제액'
+                    row_cells[3].text = f"{payroll['total_deduction']:,.0f}원"
+                    
+                    # 실수령액
+                    doc.add_paragraph("")
+                    p = doc.add_paragraph()
+                    p.add_run('실수령액: ').bold = True
+                    p.add_run(f"{payroll['net_pay']:,.0f}원").bold = True
+                    p.runs[1].font.size = Pt(14)
+                    
+                    # 고정 OT 정보 추가
+                    if setting and setting.get('is_inclusive_wage'):
+                        doc.add_paragraph("")
+                        doc.add_paragraph(f"※ 포괄임금제 적용 (고정 OT {setting.get('fixed_ot_hours', 0)}시간)")
+                    
+                    # 저장
+                    docx_buffer = io.BytesIO()
+                    doc.save(docx_buffer)
+                    docx_buffer.seek(0)
+                    
+                    st.download_button(
+                        label="📘 워드 다운로드",
+                        data=docx_buffer.getvalue(),
+                        file_name=f"급여명세서_{employee['name']}_{year_month}.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        help="워드 파일로 다운로드하여 편집 가능",
+                        use_container_width=True
+                    )
+                except ImportError:
+                    st.button(
+                        "📘 워드 다운로드",
+                        disabled=True,
+                        help="python-docx 라이브러리 설치 필요",
+                        use_container_width=True
+                    )
+                except Exception as e:
+                    st.button(
+                        "📘 워드 다운로드",
+                        disabled=True,
+                        help=f"워드 생성 오류: {str(e)}",
+                        use_container_width=True
+                    )
+            
+            with col2:
+                # 엑셀 다운로드
+                try:
+                    from openpyxl import Workbook
+                    from openpyxl.styles import Font, Alignment, PatternFill
+                    import io
+                    
+                    # 워크북 생성
+                    wb = Workbook()
+                    ws = wb.active
+                    ws.title = "급여명세서"
+                    
+                    # 제목
+                    ws.merge_cells('A1:B1')
+                    ws['A1'] = '급 여 명 세 서'
+                    ws['A1'].font = Font(size=16, bold=True)
+                    ws['A1'].alignment = Alignment(horizontal='center')
+                    
+                    # 기본 정보
+                    ws['A3'] = '귀속년월'
+                    ws['B3'] = year_month
+                    ws['A4'] = '성명'
+                    ws['B4'] = employee['name']
+                    ws['A5'] = '사번'
+                    ws['B5'] = employee.get('emp_id', '-')
+                    ws['A6'] = '생년월일'
+                    ws['B6'] = employee.get('resident_number', '')[:6] if employee.get('resident_number') else '-'
+                    ws['A7'] = '부서'
+                    ws['B7'] = employee['department']
+                    ws['A8'] = '직급'
+                    ws['B8'] = employee['position']
+                    ws['A9'] = '지급일'
+                    ws['B9'] = f"{year_month}-{C.DEFAULT_PAYDAY}"
+                    
+                    # 지급/공제 내역 (세무사 급여대장 형식)
+                    ws['A11'] = '지급 항목'
+                    ws['B11'] = '지급 금액'
+                    ws['C11'] = '공제 항목'
+                    ws['D11'] = '공제 금액'
+                    
+                    # 헤더 스타일
+                    for col in ['A11', 'B11', 'C11', 'D11']:
+                        ws[col].font = Font(bold=True)
+                        ws[col].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+                        ws[col].alignment = Alignment(horizontal='center')
+                    
+                    # 지급 항목 준비
+                    pay_items = [('기본급', payroll['base_salary'])]
+                    if payroll.get('allowances'):
+                        for name, amount in payroll.get('allowances', {}).items():
+                            if amount > 0:
+                                pay_items.append((name, amount))
                     
                     # 공제 항목
-                    if i < len(deduction_items):
-                        ws[f'C{row}'] = deduction_items[i][0]
-                        ws[f'D{row}'] = deduction_items[i][1]
-                        ws[f'D{row}'].number_format = '#,##0'
+                    deduction_items = [
+                        ('국민연금', payroll.get('national_pension', 0)),
+                        ('건강보험', payroll.get('health_insurance', 0)),
+                        ('장기요양', payroll.get('longterm_care', 0)),
+                        ('고용보험', payroll.get('employment_insurance', 0)),
+                        ('소득세', payroll.get('income_tax', 0)),
+                        ('지방소득세', payroll.get('local_tax', 0))
+                    ]
                     
+                    # 데이터 입력
+                    row = 12
+                    max_rows = max(len(pay_items), len(deduction_items))
+                    
+                    for i in range(max_rows):
+                        # 지급 항목
+                        if i < len(pay_items):
+                            ws[f'A{row}'] = pay_items[i][0]
+                            ws[f'B{row}'] = pay_items[i][1]
+                            ws[f'B{row}'].number_format = '#,##0'
+                        
+                        # 공제 항목
+                        if i < len(deduction_items):
+                            ws[f'C{row}'] = deduction_items[i][0]
+                            ws[f'D{row}'] = deduction_items[i][1]
+                            ws[f'D{row}'].number_format = '#,##0'
+                        
+                        row += 1
+                    
+                    # 합계 행
+                    ws[f'A{row}'] = '총 지급액'
+                    ws[f'B{row}'] = payroll['base_salary'] + payroll['total_allowance']
+                    ws[f'B{row}'].number_format = '#,##0'
+                    ws[f'B{row}'].font = Font(bold=True)
+                    
+                    ws[f'C{row}'] = '총 공제액'
+                    ws[f'D{row}'] = payroll['total_deduction']
+                    ws[f'D{row}'].number_format = '#,##0'
+                    ws[f'D{row}'].font = Font(bold=True)
                     row += 1
-                
-                # 합계 행
-                ws[f'A{row}'] = '총 지급액'
-                ws[f'B{row}'] = payroll['지급']['합계']
-                ws[f'B{row}'].number_format = '#,##0'
-                ws[f'B{row}'].font = Font(bold=True)
-                
-                ws[f'C{row}'] = '총 공제액'
-                ws[f'D{row}'] = payroll['공제']['합계']
-                ws[f'D{row}'].number_format = '#,##0'
-                ws[f'D{row}'].font = Font(bold=True)
-                row += 1
-                
-                # 실수령액
-                ws[f'A{row+1}'] = '실수령액'
-                ws[f'B{row+1}'] = payroll['실수령액']
-                ws[f'B{row+1}'].number_format = '#,##0'
-                ws[f'B{row+1}'].font = Font(bold=True, size=14)
-                ws[f'B{row+1}'].fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
-                
-                # 고정 OT 정보
-                if setting and setting.get('is_inclusive_wage'):
-                    ws[f'A{row+2}'] = f"※ 포괄임금제 적용 (고정 OT {setting.get('fixed_ot_hours', 0)}시간)"
-                
-                # 열 너비 조정
-                ws.column_dimensions['A'].width = 20
-                ws.column_dimensions['B'].width = 20
-                ws.column_dimensions['C'].width = 20
-                ws.column_dimensions['D'].width = 20
-                
-                # 저장
-                excel_buffer = io.BytesIO()
-                wb.save(excel_buffer)
-                excel_buffer.seek(0)
-                
+                    
+                    # 실수령액
+                    ws[f'A{row+1}'] = '실수령액'
+                    ws[f'B{row+1}'] = payroll['net_pay']
+                    ws[f'B{row+1}'].number_format = '#,##0'
+                    ws[f'B{row+1}'].font = Font(bold=True, size=14)
+                    ws[f'B{row+1}'].fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+                    
+                    # 고정 OT 정보
+                    if setting and setting.get('is_inclusive_wage'):
+                        ws[f'A{row+1}'] = f"※ 포괄임금제 적용 (고정 OT {setting.get('fixed_ot_hours', 0)}시간)"
+                    
+                    # 열 너비 조정
+                    ws.column_dimensions['A'].width = 20
+                    ws.column_dimensions['B'].width = 20
+                    ws.column_dimensions['C'].width = 20
+                    ws.column_dimensions['D'].width = 20
+                    
+                    # 저장
+                    excel_buffer = io.BytesIO()
+                    wb.save(excel_buffer)
+                    excel_buffer.seek(0)
+                    
+                    st.download_button(
+                        label="📗 엑셀 다운로드",
+                        data=excel_buffer.getvalue(),
+                        file_name=f"급여명세서_{employee['name']}_{year_month}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        help="엑셀 파일로 다운로드하여 편집 가능",
+                        use_container_width=True
+                    )
+                except Exception as e:
+                    st.button(
+                        "📗 엑셀 다운로드",
+                        disabled=True,
+                        help=f"엑셀 생성 오류: {str(e)}",
+                        use_container_width=True
+                    )
+            
+            with col3:
+                # HTML 파일 다운로드
                 st.download_button(
-                    label="📗 엑셀 다운로드",
-                    data=excel_buffer.getvalue(),
-                    file_name=f"급여명세서_{employee['name']}_{year_month}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    help="엑셀 파일로 다운로드하여 편집 가능",
+                    label="📄 HTML 다운로드",
+                    data=payslip_html.encode('utf-8'),
+                    file_name=f"급여명세서_{employee['name']}_{year_month}.html",
+                    mime="text/html",
+                    help="브라우저에서 열어서 인쇄(Ctrl+P) 가능",
                     use_container_width=True
                 )
-            except Exception as e:
-                st.button(
-                    "📗 엑셀 다운로드",
-                    disabled=True,
-                    help=f"엑셀 생성 오류: {str(e)}",
-                    use_container_width=True
-                )
-        
-        with col3:
-            # HTML 파일 다운로드
-            st.download_button(
-                label="📄 HTML 다운로드",
-                data=payslip_html.encode('utf-8'),
-                file_name=f"급여명세서_{employee['name']}_{year_month}.html",
-                mime="text/html",
-                help="브라우저에서 열어서 인쇄(Ctrl+P) 가능",
-                use_container_width=True
-            )
-        
-        st.caption("💡 **추천**: HTML 다운로드 후 브라우저에서 인쇄 (서식 완벽 유지) | 워드/엑셀 (편집 가능)")
-        
-        st.divider()
+            
+            st.caption("💡 **추천**: HTML 다운로드 후 브라우저에서 인쇄 (서식 완벽 유지) | 워드/엑셀 (편집 가능)")
+            
+            st.divider()
 
 # ============================================================
 # 사이드바 정보

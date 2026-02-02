@@ -266,6 +266,71 @@ def show_employee_form():
         st.divider()
         
         # ====================================================================
+        # 급여 정보 (이중 기준 공제용) - PRD §5.2.5
+        # ====================================================================
+        
+        st.markdown("#### 💰 급여 정보 (이중 기준 공제)")
+        
+        st.info("""
+        **💡 이중 기준 공제 시스템**
+        - **신고 보수월액**: 국민연금, 건강보험 산출의 고정 기준 (입사 시 신고한 금액)
+        - **계약 기본급**: 실제 일할 계산 및 시급 산정의 기준
+        - **주 소정근로시간**: 32시간 또는 40시간 (월 환산 시간 자동 계산)
+        - **부양가족 수**: 소득세 간이세액표 매칭용 (최소값 1)
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # 계약 기본급 입력 (먼저 입력받음)
+            contract_base = st.number_input(
+                "계약 기본급 (원) *",
+                min_value=0,
+                value=int(editing_emp.get('contract_base', 0)) if editing_emp else 0,
+                step=10000,
+                help="실제 일할 계산 및 시급 산정의 기준이 되는 기본급"
+            )
+            
+            # 신고 보수월액 (계약 기본급과 동일하게 제안, 수정 가능)
+            reported_base_default = contract_base if contract_base > 0 else (int(editing_emp.get('reported_base', 0)) if editing_emp else 0)
+            reported_base = st.number_input(
+                "신고 보수월액 (원) *",
+                min_value=0,
+                value=reported_base_default,
+                step=10000,
+                help="국민연금, 건강보험 산출의 고정 기준 (입사 시 신고한 금액). 계약 기본급과 다를 수 있습니다."
+            )
+        
+        with col2:
+            # 주 소정근로시간
+            weekly_hours = st.selectbox(
+                "주 소정근로시간 *",
+                [32, 40],
+                index=0 if (editing_emp and editing_emp.get('weekly_hours', 40) == 32) else 1 if editing_emp else 1,
+                help="32시간: 월 166.848시간, 40시간: 월 209시간"
+            )
+            
+            # 부양가족 수
+            dependents = st.number_input(
+                "부양가족 수 *",
+                min_value=1,
+                max_value=10,
+                value=int(editing_emp.get('dependents', 1)) if editing_emp else 1,
+                step=1,
+                help="소득세 간이세액표 매칭용 (최소값 1)"
+            )
+        
+        # 월 환산 시간 표시
+        if weekly_hours == 32:
+            monthly_hours = 166.848
+        else:
+            monthly_hours = 209
+        
+        st.caption(f"📊 월 환산 시간: **{monthly_hours}시간** (최저시급 10,320원 기준)")
+        
+        st.divider()
+        
+        # ====================================================================
         # 기타 정보
         # ====================================================================
         
@@ -310,6 +375,11 @@ def show_employee_form():
                 show_error("필수 정보(이름, 부서, 직급)를 모두 입력하세요.")
                 return
             
+            # Step 1-1: 급여 정보 검증
+            if contract_base <= 0 or reported_base <= 0:
+                show_error("계약 기본급과 신고 보수월액은 0보다 큰 값이어야 합니다.")
+                return
+            
             # 직원 데이터 구성
             employee_data = {
                 'name': name,
@@ -321,6 +391,10 @@ def show_employee_form():
                 'age': age if age > 0 else None,
                 'email': email if email else None,
                 'phone': phone if phone else None,
+                'reported_base': reported_base,
+                'contract_base': contract_base,
+                'weekly_hours': weekly_hours,
+                'dependents': dependents,
                 'is_pregnant': is_pregnant,
                 'is_on_leave': is_on_leave,
                 'is_youth': is_youth,

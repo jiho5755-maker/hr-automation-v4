@@ -1,84 +1,133 @@
 version: '3.8'
 
 services:
-  # ==================== 메인: 통합 대시보드 (v4.0) ====================
-  # 이 대시보드에서 모든 기능을 통합 제공
+  # 통합 대시보드
   dashboard:
     build:
       context: ./0_통합_대시보드
       dockerfile: Dockerfile
     container_name: hr-dashboard
     ports:
-      - "${DASHBOARD_PORT:-8000}:8000"
+      - "8000:8000"
     volumes:
-      # 통합 DB (읽기/쓰기)
       - ./hr_master.db:/app/hr_master.db
-      - ./hr_master.db-shm:/app/hr_master.db-shm
-      - ./hr_master.db-wal:/app/hr_master.db-wal
-      # 공유 모듈 (읽기 전용)
       - ./shared:/app/shared:ro
-      # 로그 저장 (Windows 경로 호환)
-      - ./logs:/app/logs
     environment:
       - PYTHONUNBUFFERED=1
-      - STREAMLIT_SERVER_HEADLESS=true
-      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
-      - DB_PATH=/app/hr_master.db
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/_stcore/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    restart: unless-stopped
     networks:
       - hr_network
-    # 리소스 제한 (홈서버 최적화)
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
 
-  # ==================== Nginx 리버스 프록시 ====================
-  # 포트 80으로 단일 진입점 제공
+  # 출산육아 자동화
+  maternity:
+    build:
+      context: ./1_출산육아_자동화
+      dockerfile: Dockerfile
+    container_name: hr-maternity
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./hr_master.db:/app/hr_master.db
+      - ./1_출산육아_자동화/employees_data.json:/app/employees_data.json
+      - ./shared:/app/shared:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - hr_network
+
+  # 연말정산 자동화
+  yearend:
+    build:
+      context: ./2_연말정산_자동화
+      dockerfile: Dockerfile
+    container_name: hr-yearend
+    ports:
+      - "8502:8502"
+    volumes:
+      - ./hr_master.db:/app/hr_master.db
+      - ./shared:/app/shared:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - hr_network
+
+  # 재택근무 관리시스템
+  remote:
+    build:
+      context: ./3_재택근무_관리시스템
+      dockerfile: Dockerfile
+    container_name: hr-remote
+    ports:
+      - "8503:8503"
+    volumes:
+      - ./hr_master.db:/app/hr_master.db
+      - ./shared:/app/shared:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - hr_network
+
+  # 정부지원금 자동화
+  subsidy:
+    build:
+      context: ./4_정부지원금_자동화
+      dockerfile: Dockerfile
+    container_name: hr-subsidy
+    ports:
+      - "8504:8504"
+    volumes:
+      - ./hr_master.db:/app/hr_master.db
+      - ./shared:/app/shared:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - hr_network
+
+  # 급여관리 자동화
+  payroll:
+    build:
+      context: ./5_급여관리_자동화
+      dockerfile: Dockerfile
+    container_name: hr-payroll
+    ports:
+      - "8505:8505"
+    volumes:
+      - ./hr_master.db:/app/hr_master.db
+      - ./shared:/app/shared:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - hr_network
+
+  # Nginx 리버스 프록시 (선택사항)
   nginx:
     image: nginx:alpine
     container_name: hr-nginx
     ports:
-      - "${NGINX_PORT:-80}:80"
+      - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/html:/usr/share/nginx/html:ro
     depends_on:
-      dashboard:
-        condition: service_healthy
-    restart: always
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - dashboard
+      - maternity
+      - yearend
+      - remote
+      - subsidy
+      - payroll
+    restart: unless-stopped
     networks:
       - hr_network
-    # Nginx는 가볍게
-    deploy:
-      resources:
-        limits:
-          cpus: '0.25'
-          memory: 128M
 
 networks:
   hr_network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
 
 volumes:
-  # 데이터 영속성 보장
   hr_data:
     driver: local
