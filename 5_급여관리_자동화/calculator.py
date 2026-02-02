@@ -246,15 +246,23 @@ class PayrollCalculator:
         
         total_deduction = pension + health + longterm + employment + income_tax + local_tax
         
-        # 4. 고용노동부 표준 양식용 산출식
+        # 4. 고용노동부 표준 양식용 산출식 (A4 한 장 최적화를 위해 간결하게 작성)
+        # 일할 계산이 없는 경우 (전액 지급)
+        if work_days == total_days or work_days is None:
+            base_formula = f"{contract_base:,}원"
+            meal_formula = f"{contract_meal:,}원"
+        else:
+            base_formula = f"{contract_base:,}원 × {work_days}/{total_days}일 (백원절사)"
+            meal_formula = f"{contract_meal:,}원 × {work_days}/{total_days}일 (천원절사)"
+        
         calc_methods = [
-            {"item": "기본급", "formula": f"{contract_base:,}원 × {work_days}/{total_days}일 (백원절사)", "amount": paid_base},
-            {"item": "식대", "formula": f"{contract_meal:,}원 × {work_days}/{total_days}일 (천원절사)", "amount": paid_meal},
-            {"item": "국민연금", "formula": f"신고 보수월액 {reported_base:,}원 기준 (4.75%)", "amount": pension},
-            {"item": "건강보험", "formula": f"신고 보수월액 {reported_base:,}원 기준 (3.595%)", "amount": health},
+            {"item": "기본급", "formula": base_formula, "amount": paid_base},
+            {"item": "식대", "formula": meal_formula, "amount": paid_meal},
+            {"item": "국민연금", "formula": f"신고보수월액 {reported_base:,}원 × 4.75%", "amount": pension},
+            {"item": "건강보험", "formula": f"신고보수월액 {reported_base:,}원 × 3.595%", "amount": health},
             {"item": "장기요양보험", "formula": "건강보험료 × 13.14%", "amount": longterm},
-            {"item": "고용보험", "formula": f"실지급 과세액 {taxable_paid:,}원 기준 (0.9%)", "amount": employment},
-            {"item": "소득세", "formula": "간이세액표 기준 (106만원 미만 면제)", "amount": income_tax},
+            {"item": "고용보험", "formula": f"실지급과세액 {taxable_paid:,}원 × 0.9%", "amount": employment},
+            {"item": "소득세", "formula": "간이세액표 (106만원 미만 면제)", "amount": income_tax},
             {"item": "지방소득세", "formula": "소득세 × 10%", "amount": local_tax}
         ]
 

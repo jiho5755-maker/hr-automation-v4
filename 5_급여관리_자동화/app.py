@@ -1049,62 +1049,189 @@ elif menu == "📄 급여명세서 출력":
         else:
             st.info("💡 아래는 당월 근무일수 기준으로 계산된 급여명세서입니다. 저장하려면 '💰 월별 급여 계산' 메뉴를 사용하세요.")
         
+        # 생년월일 추출 (주민등록번호 앞 6자리 또는 기본값)
+        resident_number = employee.get('resident_number', '')
+        if resident_number:
+            birth_date = resident_number[:6] if len(resident_number) >= 6 else '19XX-XX-XX'
+            if len(birth_date) == 6:
+                birth_date = f"{birth_date[:2]}-{birth_date[2:4]}-{birth_date[4:6]}"
+        else:
+            birth_date = '19XX-XX-XX'
+        
         # 급여명세서 표시 (계산된 결과 사용)
-        # 고용노동부 표준 양식 HTML 생성
+        # 고용노동부 표준 양식 HTML 생성 (A4 한 장 최적화)
         payslip_html = f"""
-        <div style="border: 2px solid #000; padding: 20px; font-family: 'Malgun Gothic'; background: white; color: black;">
-            <h2 style="text-align: center; text-decoration: underline;">임 금 명 세 서</h2>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                <tr>
-                    <td style="border: 1px solid #000; padding: 8px; background: #eee; width: 15%;">성명</td>
-                    <td style="border: 1px solid #000; padding: 8px; width: 35%;">{employee['name']}</td>
-                    <td style="border: 1px solid #000; padding: 8px; background: #eee; width: 15%;">사번</td>
-                    <td style="border: 1px solid #000; padding: 8px; width: 35%;">{employee.get('emp_id', '-')}</td>
-                </tr>
-            </table>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                @media print {{
+                    @page {{
+                        size: A4;
+                        margin: 10mm;
+                    }}
+                    body {{
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .payslip-container {{
+                        padding: 10px !important;
+                    }}
+                    h2 {{
+                        font-size: 12pt !important;
+                        margin: 5px 0 !important;
+                    }}
+                    h4 {{
+                        font-size: 10pt !important;
+                        margin: 8px 0 5px 0 !important;
+                    }}
+                    table {{
+                        font-size: 9pt !important;
+                    }}
+                    td {{
+                        padding: 3px 4px !important;
+                    }}
+                }}
+                .payslip-container {{
+                    border: 2px solid #000;
+                    padding: 15px;
+                    font-family: 'Malgun Gothic', sans-serif;
+                    background: white;
+                    color: black;
+                    font-size: 10pt;
+                    line-height: 1.3;
+                }}
+                h2 {{
+                    text-align: center;
+                    text-decoration: underline;
+                    font-size: 14pt;
+                    margin: 5px 0 8px 0;
+                }}
+                h4 {{
+                    margin-top: 10px;
+                    margin-bottom: 5px;
+                    border-left: 4px solid #333;
+                    padding-left: 8px;
+                    font-size: 11pt;
+                }}
+                .info-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 5px;
+                    font-size: 9pt;
+                }}
+                .info-table td {{
+                    border: 1px solid #000;
+                    padding: 4px 6px;
+                }}
+                .detail-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 9pt;
+                    margin-top: 5px;
+                }}
+                .detail-table td {{
+                    border: 1px solid #000;
+                    padding: 3px 4px;
+                }}
+                .calc-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 9pt;
+                    margin-top: 5px;
+                }}
+                .calc-table td {{
+                    border: 1px solid #000;
+                    padding: 3px 4px;
+                }}
+                .net-pay-row {{
+                    font-weight: bold;
+                    background: #fff5cc;
+                    font-size: 10pt;
+                }}
+                .net-pay-row td {{
+                    padding: 6px 8px !important;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="payslip-container">
+                <h2>임 금 명 세 서</h2>
+                
+                <table class="info-table">
+                    <tr>
+                        <td style="background: #eee; width: 12%;">성명</td>
+                        <td style="width: 25%;">{employee['name']}</td>
+                        <td style="background: #eee; width: 12%;">사번</td>
+                        <td style="width: 20%;">{employee.get('emp_id', '-')}</td>
+                        <td style="background: #eee; width: 12%;">생년월일</td>
+                        <td style="width: 19%;">{birth_date}</td>
+                    </tr>
+                    <tr>
+                        <td style="background: #eee;">부서</td>
+                        <td>{employee.get('department', '-')}</td>
+                        <td style="background: #eee;">직급</td>
+                        <td>{employee.get('position', '-')}</td>
+                        <td style="background: #eee;">지급일</td>
+                        <td>{year_month}-{C.DEFAULT_PAYDAY}</td>
+                    </tr>
+                </table>
 
-            <h4 style="margin-top: 20px; border-left: 5px solid #333; padding-left: 10px;">1. 세부 내역</h4>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr style="background: #eee; text-align: center; font-weight: bold;">
-                    <td colspan="2" style="border: 1px solid #000;">지 급</td>
-                    <td colspan="2" style="border: 1px solid #000;">공 제</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #000; padding: 5px;">기본급</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['지급']['기본급']:,}</td>
-                    <td style="border: 1px solid #000; padding: 5px;">국민연금</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['공제']['국민연금']:,}</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #000; padding: 5px;">식대</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['지급']['식대']:,}</td>
-                    <td style="border: 1px solid #000; padding: 5px;">건강보험</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['공제']['건강보험']:,}</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #000; padding: 5px;"></td><td style="border: 1px solid #000; text-align: right; padding: 5px;"></td>
-                    <td style="border: 1px solid #000; padding: 5px;">장기요양</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['공제']['장기요양']:,}</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #000; padding: 5px;"></td><td style="border: 1px solid #000; text-align: right; padding: 5px;"></td>
-                    <td style="border: 1px solid #000; padding: 5px;">고용보험</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['공제']['고용보험']:,}</td>
-                </tr>
-                <tr style="font-weight: bold; background: #fafafa;">
-                    <td style="border: 1px solid #000; padding: 5px;">지급액 계</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['지급']['합계']:,}</td>
-                    <td style="border: 1px solid #000; padding: 5px;">공제액 계</td><td style="border: 1px solid #000; text-align: right; padding: 5px;">{payroll['공제']['합계']:,}</td>
-                </tr>
-                <tr style="font-weight: bold; background: #fff5cc; font-size: 1.1em;">
-                    <td colspan="3" style="border: 1px solid #000; text-align: center; padding: 10px;">실 지 급 액</td>
-                    <td style="border: 1px solid #000; text-align: right; padding: 10px;">{payroll['실수령액']:,}원</td>
-                </tr>
-            </table>
+                <h4>1. 세부 내역</h4>
+                <table class="detail-table">
+                    <tr style="background: #eee; text-align: center; font-weight: bold;">
+                        <td colspan="2" style="padding: 4px;">지 급</td>
+                        <td colspan="2" style="padding: 4px;">공 제</td>
+                    </tr>
+                    <tr>
+                        <td style="width: 25%;">기본급</td>
+                        <td style="text-align: right; width: 25%;">{payroll['지급']['기본급']:,}</td>
+                        <td style="width: 25%;">국민연금</td>
+                        <td style="text-align: right; width: 25%;">{payroll['공제']['국민연금']:,}</td>
+                    </tr>
+                    <tr>
+                        <td>식대</td>
+                        <td style="text-align: right;">{payroll['지급']['식대']:,}</td>
+                        <td>건강보험</td>
+                        <td style="text-align: right;">{payroll['공제']['건강보험']:,}</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td style="text-align: right;"></td>
+                        <td>장기요양</td>
+                        <td style="text-align: right;">{payroll['공제']['장기요양']:,}</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td style="text-align: right;"></td>
+                        <td>고용보험</td>
+                        <td style="text-align: right;">{payroll['공제']['고용보험']:,}</td>
+                    </tr>
+                    <tr style="font-weight: bold; background: #fafafa;">
+                        <td>지급액 계</td>
+                        <td style="text-align: right;">{payroll['지급']['합계']:,}</td>
+                        <td>공제액 계</td>
+                        <td style="text-align: right;">{payroll['공제']['합계']:,}</td>
+                    </tr>
+                    <tr class="net-pay-row">
+                        <td colspan="3" style="text-align: center;">실 지 급 액</td>
+                        <td style="text-align: right;">{payroll['실수령액']:,}원</td>
+                    </tr>
+                </table>
 
-            <h4 style="margin-top: 20px; border-left: 5px solid #333; padding-left: 10px;">2. 계산 방법 (고용노동부 표준)</h4>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr style="background: #eee; text-align: center; font-weight: bold;">
-                    <td style="border: 1px solid #000; padding: 5px;">구분</td>
-                    <td style="border: 1px solid #000; padding: 5px;">산출식 또는 산출방법</td>
-                    <td style="border: 1px solid #000; padding: 5px;">지급액(원)</td>
-                </tr>
-                {"".join([f"<tr><td style='border: 1px solid #000; padding: 5px;'>{m['item']}</td><td style='border: 1px solid #000; padding: 5px;'>{m['formula']}</td><td style='border: 1px solid #000; text-align: right; padding: 5px;'>{m['amount']:,}</td></tr>" for m in payroll.get('calc_methods', [])])}
-            </table>
-        </div>
+                <h4>2. 계산 방법 (고용노동부 표준)</h4>
+                <table class="calc-table">
+                    <tr style="background: #eee; text-align: center; font-weight: bold;">
+                        <td style="width: 15%; padding: 4px;">구분</td>
+                        <td style="width: 60%; padding: 4px;">산출식 또는 산출방법</td>
+                        <td style="width: 25%; padding: 4px;">지급액(원)</td>
+                    </tr>
+                    {"".join([f"<tr><td>{m['item']}</td><td>{m['formula']}</td><td style='text-align: right;'>{m['amount']:,}</td></tr>" for m in payroll.get('calc_methods', [])])}
+                </table>
+            </div>
+        </body>
+        </html>
         """
         
         # HTML 렌더링 (양식으로 표시)
